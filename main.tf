@@ -26,14 +26,11 @@ resource "aws_ssm_document" "script" {
         inputs:
           runCommand:
             - |
-              # Create a temporary file for script content parts
-              touch {{WorkingDirectory}}/script.sh
+              # Create script file and make it executable
+              cat > {{WorkingDirectory}}/script.sh << 'SCRIPTEOF'
+              ${var.script_content}
+              SCRIPTEOF
               chmod +x {{WorkingDirectory}}/script.sh
-              
-              # Write script content line by line to preserve formatting
-              cat > {{WorkingDirectory}}/script.sh << 'EOF'
-${var.script_content}
-EOF
       - name: "ExecuteScript"
         action: "aws:runShellScript"
         timeoutSeconds: ${var.timeout}
