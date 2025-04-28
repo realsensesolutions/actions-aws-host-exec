@@ -26,6 +26,13 @@ variable "timeout" {
 }
 
 variable "script_content" {
-  description = "Content of the script to execute"
+  description = "Content of the script to execute (deprecated, use script_path instead)"
   type        = string
+  default     = ""
+}
+
+variable "script_path" {
+  description = "Path to the script file to execute"
+  type        = string
+  default     = ""
 } 
