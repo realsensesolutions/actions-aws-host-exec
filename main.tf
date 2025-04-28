@@ -28,7 +28,7 @@ resource "aws_ssm_document" "script" {
             - |
               # Create script file and make it executable
               cat > {{WorkingDirectory}}/script.sh << 'EOF'
-              ${indent(14, var.script_content)}
+              ${indent(14, file("${path.module}/resource/sample-script.sh"))}
               EOF
               chmod +x {{WorkingDirectory}}/script.sh
       - name: "ExecuteScript"
