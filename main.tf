@@ -21,25 +21,15 @@ resource "aws_ssm_document" "script" {
               # Create working directory if it doesn't exist
               mkdir -p {{WorkingDirectory}}
               chmod 755 {{WorkingDirectory}}
-      - name: "CreateScript"
-        action: "aws:runShellScript"
-        inputs:
-          runCommand:
-            - |
-              # Create script file and make it executable
-              cat > {{WorkingDirectory}}/script.sh << 'EOF'
-              ${indent(14, file("${path.module}/resource/sample-script.sh"))}
-              EOF
-              chmod +x {{WorkingDirectory}}/script.sh
-      - name: "ExecuteScript"
+      - name: "ExecuteCommands"
         action: "aws:runShellScript"
         timeoutSeconds: ${var.timeout}
         inputs:
           runCommand:
             - |
-              # Execute script
+              # Execute commands directly
               cd {{WorkingDirectory}}
-              ./script.sh
+              ${indent(14, file("${path.module}/resource/sample-script.sh"))}
   DOC
 
   tags = {
