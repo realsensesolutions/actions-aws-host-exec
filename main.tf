@@ -27,9 +27,9 @@ resource "aws_ssm_document" "script" {
           runCommand:
             - |
               # Create script file and make it executable
-              cat > {{WorkingDirectory}}/script.sh << 'SCRIPTEOF'
-              ${var.script_content}
-              SCRIPTEOF
+              cat > {{WorkingDirectory}}/script.sh << 'EOF'
+${indent(14, var.script_content)}
+              EOF
               chmod +x {{WorkingDirectory}}/script.sh
       - name: "ExecuteScript"
         action: "aws:runShellScript"
