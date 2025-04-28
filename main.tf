@@ -26,18 +26,21 @@ resource "aws_ssm_document" "script" {
         inputs:
           runCommand:
             - |
-              # Create script file with base64 decode to preserve exact formatting
-              echo "${var.script_content_b64}" | base64 --decode > {{WorkingDirectory}}/script.sh
-              
-              # Make script executable
+              # Create a temporary file for script content parts
+              touch {{WorkingDirectory}}/script.sh
               chmod +x {{WorkingDirectory}}/script.sh
+              
+              # Write script content line by line to preserve formatting
+              cat > {{WorkingDirectory}}/script.sh << 'EOF'
+${var.script_content}
+EOF
       - name: "ExecuteScript"
         action: "aws:runShellScript"
         timeoutSeconds: ${var.timeout}
         inputs:
           runCommand:
             - |
-              # Execute script with parameters
+              # Execute script
               cd {{WorkingDirectory}}
               ./script.sh
   DOC

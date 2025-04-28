@@ -25,7 +25,7 @@ variable "timeout" {
   default     = "3600"
 }
 
-variable "script_content_b64" {
-  description = "Base64-encoded content of the script to execute"
+variable "script_content" {
+  description = "Content of the script to execute"
   type        = string
 } 
