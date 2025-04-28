@@ -43,6 +43,7 @@ sequenceDiagram
 ## Features
 
 - Execute scripts on EC2 instances without uploading to S3
+- Execute commands directly without creating script files on the target hosts
 - Target instances using AWS tags
 - Scripts are embedded directly in the SSM document
 - Secure execution using AWS SSM
@@ -131,7 +132,6 @@ jobs:
         script: scripts/backup.sh
         working-directory: /opt/backups
         timeout: 1800
-        script-parameters: "--type=full"
         targets: |
           Environment:PROD
           Role:DB
@@ -143,8 +143,8 @@ jobs:
 2. GitHub Actions creates/updates an SSM document with the script content embedded
 3. GitHub Actions creates an SSM association to target instances
 4. SSM triggers execution on target hosts
-5. SSM agent on host executes the script
-6. The script execution results are reported back to SSM
+5. SSM agent on host executes the commands directly
+6. The execution results are reported back to SSM
 
 ## Security
 
