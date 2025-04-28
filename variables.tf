@@ -30,3 +30,9 @@ variable "script_content" {
   type        = string
   default     = ""
 }
+
+variable "script_path" {
+  description = "Path to the script file to execute"
+  type        = string
+  default     = ""
+}

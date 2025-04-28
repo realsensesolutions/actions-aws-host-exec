@@ -65,6 +65,7 @@ runs:
         TF_VAR_timeout: ${{ inputs.timeout }}
         TF_VAR_targets: ${{ inputs.targets }}
         TF_VAR_script_content: ${{ steps.script-content.outputs.content }}
+        TF_VAR_script_path: "${{ github.workspace }}/${{ inputs.script }}"
       run: terraform ${{ env.ACTION }} ${{ env.ACTION_ARGS }}
 
     - name: get terraform outputs
