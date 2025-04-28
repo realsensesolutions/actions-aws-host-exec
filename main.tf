@@ -26,10 +26,8 @@ resource "aws_ssm_document" "script" {
         inputs:
           runCommand:
             - |
-              # Create script file
-              cat > {{WorkingDirectory}}/script.sh << 'EOFSCRIPT'
-              ${var.script_content}
-              EOFSCRIPT
+              # Create script file with base64 decode to preserve exact formatting
+              echo "${var.script_content_b64}" | base64 --decode > {{WorkingDirectory}}/script.sh
               
               # Make script executable
               chmod +x {{WorkingDirectory}}/script.sh

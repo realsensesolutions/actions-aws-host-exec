@@ -49,9 +49,20 @@ runs:
       id: script-content
       shell: bash
       run: |
-        SCRIPT_CONTENT=$(cat "${{ github.workspace }}/${{ inputs.script }}")
-        SCRIPT_CONTENT_ESCAPED=$(echo "$SCRIPT_CONTENT" | awk '{printf "%s\\n", $0}')
-        echo "content=$SCRIPT_CONTENT_ESCAPED" >> $GITHUB_OUTPUT
+        # Create a temporary file to store the script content
+        TEMP_FILE=$(mktemp)
+        
+        # Read the script content and preserve literal newlines
+        cat "${{ github.workspace }}/${{ inputs.script }}" > $TEMP_FILE
+        
+        # Base64 encode to preserve all characters including newlines
+        SCRIPT_CONTENT_B64=$(base64 -w 0 $TEMP_FILE)
+        
+        # Output the base64 encoded content
+        echo "content=$SCRIPT_CONTENT_B64" >> $GITHUB_OUTPUT
+        
+        # Clean up
+        rm $TEMP_FILE
 
     - name: run action
       id: tf-action
@@ -64,7 +75,7 @@ runs:
         TF_VAR_working_directory: ${{ inputs.working-directory }}
         TF_VAR_timeout: ${{ inputs.timeout }}
         TF_VAR_targets: ${{ inputs.targets }}
-        TF_VAR_script_content: ${{ steps.script-content.outputs.content }}
+        TF_VAR_script_content_b64: ${{ steps.script-content.outputs.content }}
       run: terraform ${{ env.ACTION }} ${{ env.ACTION_ARGS }}
 
     - name: get terraform outputs
