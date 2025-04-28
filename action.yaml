@@ -1,0 +1,79 @@
+---
+name: 'Actions AWS Host Exec'
+description: 'Execute scripts on EC2 instances using SSM with embedded script content'
+inputs:
+  name:
+    description: 'Execution name'
+    required: true
+  script:
+    description: 'Path to script file to execute'
+    required: true
+  targets:
+    description: 'Target selection criteria in format KEY:VALUE (one per line). Example: Environment:DEV'
+    required: true
+  working-directory:
+    description: 'Directory to execute script in'
+    required: false
+    default: '/home/ssm-user'
+  timeout:
+    description: 'Execution timeout in seconds'
+    required: false
+    default: '3600'
+  action:
+    description: "Desired outcome: apply, plan or destroy"
+    required: false
+    default: "apply"
+
+outputs:
+  document:
+    description: "SSM document ARN"
+    value: ${{ steps.tf-outputs.outputs.document }}
+  role_name:
+    description: "IAM role name"
+    value: ${{ steps.tf-outputs.outputs.role_name }}
+
+runs:
+  using: "composite"
+
+  steps:
+    - name: init
+      shell: bash
+      working-directory: ${{ github.action_path }}
+      run: |
+        terraform init -reconfigure \
+          -backend-config="bucket=${{ env.TF_BACKEND_s3 }}" \
+          -backend-config="dynamodb_table=${{ env.TF_BACKEND_dynamodb }}" \
+          -backend-config="key=${{ inputs.name }}"
+
+    - name: read script content
+      id: script-content
+      shell: bash
+      run: |
+        SCRIPT_CONTENT=$(cat "${{ github.workspace }}/${{ inputs.script }}")
+        SCRIPT_CONTENT_ESCAPED=$(echo "$SCRIPT_CONTENT" | awk '{printf "%s\\n", $0}')
+        echo "content=$SCRIPT_CONTENT_ESCAPED" >> $GITHUB_OUTPUT
+
+    - name: run action
+      id: tf-action
+      shell: bash
+      working-directory: ${{ github.action_path }}
+      env:
+        ACTION: ${{ inputs.action }}
+        ACTION_ARGS: ${{ inputs.action != 'plan' && '-auto-approve' || '' }}
+        TF_VAR_name: ${{ inputs.name }}
+        TF_VAR_working_directory: ${{ inputs.working-directory }}
+        TF_VAR_timeout: ${{ inputs.timeout }}
+        TF_VAR_targets: ${{ inputs.targets }}
+        TF_VAR_script_content: ${{ steps.script-content.outputs.content }}
+      run: terraform ${{ env.ACTION }} ${{ env.ACTION_ARGS }}
+
+    - name: get terraform outputs
+      id: tf-outputs
+      if: inputs.action != 'destroy'
+      shell: bash
+      working-directory: ${{ github.action_path }}
+      run: |
+        DOCUMENT=$(terraform output -raw document)
+        ROLE_NAME=$(terraform output -raw role_name)
+        echo "document=$DOCUMENT" >> $GITHUB_OUTPUT
+        echo "role_name=$ROLE_NAME" >> $GITHUB_OUTPUT 

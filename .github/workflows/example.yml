@@ -1,0 +1,37 @@
+name: Example Workflow
+
+on:
+  push:
+    branches: 
+      - main
+
+permissions:
+  id-token: write
+  contents: read
+
+jobs:
+  run-script:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+
+    - name: Configure AWS Credentials
+      uses: aws-actions/configure-aws-credentials@v4
+      with:
+        role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+        aws-region: us-east-1
+
+    - uses: alonch/actions-aws-backend-setup@main
+      with: 
+        instance: host-exec
+
+    - name: Execute Sample Script
+      uses: realsensesolutions/actions-aws-host-exec@main
+      with:
+        name: simple-exec
+        script: resource/sample-script.sh
+        working-directory: /opt/scripts
+        targets: |
+          Name:cuchu
