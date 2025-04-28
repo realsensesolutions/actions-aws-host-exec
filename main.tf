@@ -29,7 +29,7 @@ resource "aws_ssm_document" "script" {
             - |
               # Execute commands directly
               cd {{WorkingDirectory}}
-              ${indent(14, file("${path.module}/resource/sample-script.sh"))}
+              ${indent(14, var.script_content)}
   DOC
 
   tags = {
