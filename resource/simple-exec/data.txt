@@ -1,0 +1,5 @@
+This is a sample data file that will be included in the artifacts.
+It demonstrates that multiple files can be packaged and deployed together.
+
+The script can read this file and use it during execution.
+

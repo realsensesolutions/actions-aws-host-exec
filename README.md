@@ -1,6 +1,6 @@
 # Actions AWS Host Exec
 
-This GitHub Action executes scripts on External Hosts or EC2 instances using AWS Systems Manager (SSM). It creates an SSM document that includes the script content directly and establishes an association to execute it on target instances.
+This GitHub Action executes scripts on External Hosts or EC2 instances using AWS Systems Manager (SSM). It uploads artifacts to S3, creates an SSM document to download and extract those artifacts, and executes a script from within them on target instances.
 
 ## Architecture
 
@@ -11,8 +11,8 @@ graph TD
     end
 
     subgraph AWS
+        S3[S3 Bucket]
         SSM[SSM Service]
-        Document[SSM Document]
     end
 
     subgraph Host
@@ -20,9 +20,11 @@ graph TD
         Script[Script Execution]
     end
 
-    GA -->|create/update| Document
-    Document -->|part of| SSM
+    GA -->|upload| S3
+    GA -->|update| SSM
     SSM -->|trigger| SSMAgent
+    SSMAgent -->|pull| S3
+    SSMAgent -->|extract| Script
     SSMAgent -->|execute| Script
 ```
 
@@ -31,41 +33,45 @@ graph TD
 ```mermaid
 sequenceDiagram
     participant GA as GitHub Actions
+    participant S3 as S3 Bucket
     participant SSM as SSM Service
     participant Host as Target Host
 
-    GA->>SSM: create/update document with embedded script
+    GA->>S3: upload artifacts
+    GA->>SSM: update document
     SSM->>Host: trigger execution
+    Host->>S3: pull artifacts
+    Host->>Host: extract files
     Host->>Host: execute script
-    Host->>Host: report status
 ```
 
 ## Features
 
-- Execute scripts on EC2 instances without uploading to S3
-- Execute commands directly without creating script files on the target hosts
+- Execute scripts on EC2 instances with artifact support
+- Upload artifacts (scripts, configs, data files) to S3
+- Automatically download and extract artifacts on target hosts
 - Target instances using AWS tags
-- Scripts are embedded directly in the SSM document
+- Secure artifact storage in S3
 - Secure execution using AWS SSM
-- Support for script parameters
+- Support for multiple files in artifacts
 
 ## Comparison with actions-aws-host-service
 
 | Feature | actions-aws-host-exec | actions-aws-host-service |
 |---------|------------------------|--------------------------|
-| **Purpose** | Run scripts on EC2 instances | Deploy systemd services on EC2 instances |
-| **Artifact Storage** | No external storage needed | Uses S3 bucket for artifacts |
-| **Script Storage** | Embedded in SSM document | Uploaded to S3 bucket |
-| **Security** | No artifacts exposed outside SSM | Artifacts stored in S3 with proper permissions |
-| **Use Case** | One-time script execution | Long-running service deployment |
-| **Infrastructure** | SSM document and association | S3 bucket, SSM document, and association |
-| **Execution** | Direct script execution | Service installation and management |
+| **Purpose** | Run scripts with artifacts on EC2 instances | Deploy systemd services on EC2 instances |
+| **Artifact Storage** | Uses S3 bucket for artifacts | Uses S3 bucket for artifacts |
+| **Script Storage** | Uploaded to S3 as part of artifacts | Uploaded to S3 as part of artifacts |
+| **Security** | Artifacts stored in S3 with proper permissions | Artifacts stored in S3 with proper permissions |
+| **Use Case** | Script execution with supporting files | Long-running service deployment |
+| **Infrastructure** | S3 bucket, SSM document, and association | S3 bucket, SSM document, and association |
+| **Execution** | Script execution from artifacts | Service installation and management |
 
 ## When to use each action:
 
-- **actions-aws-host-exec**: Use when you need to run a script or command on target instances without setting up a persistent service. Ideal for tasks like configuration updates, health checks, or one-time operations.
+- **actions-aws-host-exec**: Use when you need to run a script with supporting files (configs, data files, etc.) on target instances. Ideal for tasks like deployments, configuration updates, data processing, or operations that require additional files.
 
-- **actions-aws-host-service**: Use when you need to deploy a long-running systemd service with associated files and configurations. Better for applications, daemons, or other persistent processes.
+- **actions-aws-host-service**: Use when you need to deploy a long-running systemd service with associated files and configurations. Better for applications, daemons, or other persistent processes that should run as services.
 
 ## Prerequisites
 
@@ -80,16 +86,16 @@ sequenceDiagram
 | Name | Description | Example |
 |------|-------------|---------|
 | `name` | Execution name | `db-backup` |
-| `script` | Path to script file to execute | `scripts/backup.sh` |
+| `artifacts` | Path to folder containing artifacts to upload | `resource/my-script` |
+| `script` | Path to script file within artifacts (relative to artifact root) | `backup.sh` |
 | `targets` | Target selection criteria in format KEY:VALUE (one per line) | `Environment:DEV` |
 
 ### Optional Inputs
 
 | Name | Description | Default | Example |
 |------|-------------|---------|---------|
-| `working-directory` | Directory to execute script in | `/home/ssm-user` | `/opt/scripts` |
+| `working-directory` | Directory to extract artifacts and execute script in | `/home/ssm-user` | `/opt/scripts` |
 | `timeout` | Execution timeout in seconds | `3600` | `1800` |
-| `script-parameters` | Parameters to pass to the script | `""` | `"--verbose --force"` |
 | `action` | Desired outcome: apply, plan or destroy | `apply` | `plan` |
 
 ## Outputs
@@ -98,6 +104,7 @@ sequenceDiagram
 |------|-------------|
 | `document` | SSM document ARN |
 | `role_name` | IAM role name |
+| `bucket` | S3 bucket name for artifacts |
 
 ## Usage
 
@@ -125,11 +132,16 @@ jobs:
         role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
         aws-region: us-east-1
 
+    - uses: alonch/actions-aws-backend-setup@main
+      with: 
+        instance: host-exec
+
     - name: Execute Backup Script
       uses: realsensesolutions/actions-aws-host-exec@main
       with:
         name: daily-db-backup
-        script: scripts/backup.sh
+        artifacts: resource/backup-script
+        script: backup.sh
         working-directory: /opt/backups
         timeout: 1800
         targets: |
@@ -137,19 +149,33 @@ jobs:
           Role:DB
 ```
 
+### Artifacts Folder Structure
+
+Your artifacts folder should contain the script and any supporting files:
+
+```
+resource/backup-script/
+├── backup.sh           # Main script to execute
+├── config.json         # Configuration file
+└── lib/               # Additional supporting files
+    └── utils.sh
+```
+
 ## How It Works
 
-1. GitHub Actions reads the script file
-2. GitHub Actions creates/updates an SSM document with the script content embedded
-3. GitHub Actions creates an SSM association to target instances
+1. GitHub Actions packages the artifacts folder into a tarball
+2. GitHub Actions uploads artifacts to S3
+3. GitHub Actions creates/updates an SSM document and association
 4. SSM triggers execution on target hosts
-5. SSM agent on host executes the commands directly
-6. The execution results are reported back to SSM
+5. SSM agent on host downloads artifacts from S3
+6. SSM agent extracts artifacts to working directory
+7. SSM agent executes the specified script
+8. The execution results are reported back to SSM
 
 ## Security
 
 - Uses AWS IAM roles for secure access
-- No artifacts uploaded to external storage
+- Artifacts are stored in a dedicated S3 bucket with proper permissions
 - SSM provides secure command execution
 - All resources are tagged with `provisioned-by: actions-aws-host-exec`
 

@@ -25,14 +25,12 @@ variable "timeout" {
   default     = "3600"
 }
 
-variable "script_content" {
-  description = "Content of the script to execute (deprecated, use script_path instead)"
+variable "script" {
+  description = "Path to script file within artifacts (relative to artifact root)"
   type        = string
-  default     = ""
 }
 
-variable "script_path" {
-  description = "Path to the script file to execute"
+variable "artifacts_folder" {
+  description = "Path to folder containing artifacts to upload"
   type        = string
-  default     = ""
 }

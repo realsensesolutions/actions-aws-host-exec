@@ -1,0 +1,10 @@
+{
+  "name": "simple-exec",
+  "version": "1.0.0",
+  "description": "Sample execution with artifacts",
+  "environment": {
+    "LOG_LEVEL": "INFO",
+    "ENABLE_DEBUG": "false"
+  }
+}
+

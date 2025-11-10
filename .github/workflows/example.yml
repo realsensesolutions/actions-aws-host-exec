@@ -31,7 +31,8 @@ jobs:
       uses: realsensesolutions/actions-aws-host-exec@main
       with:
         name: simple-exec
-        script: resource/sample-script.sh
+        artifacts: resource/simple-exec
+        script: sample-script.sh
         working-directory: /opt/scripts
         targets: |
           Name:cuchu
